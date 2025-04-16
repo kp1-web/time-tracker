@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { NewTaskDialog } from '@/components/tasks/NewTaskDialog'
 import { GenerateReportButton } from '@/components/tasks/GenerateReportButton'
 import { TaskDetailsDialog } from '@/components/tasks/TaskDetailsDialog'
-import { Clock, FileText, Calendar, BarChart2 } from 'lucide-react'
+import { Clock, FileText, Calendar, BarChart2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { format, isSameDay } from 'date-fns'
+import { Button } from '@/components/ui/button'
 
 interface Task {
   id: number
@@ -17,7 +19,21 @@ interface Task {
   endTime: Date | null
 }
 
-export default function DashboardClient({ tasks, user }: { tasks: Task[], user: any }) {
+interface PaginationProps {
+  currentPage: number
+  totalPages: number
+  totalTasks: number
+}
+
+export default function DashboardClient({ 
+  tasks, 
+  user, 
+  pagination 
+}: { 
+  tasks: Task[], 
+  user: any,
+  pagination: PaginationProps
+}) {
   const router = useRouter()
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
@@ -51,6 +67,20 @@ export default function DashboardClient({ tasks, user }: { tasks: Task[], user: 
       console.error('Logout failed:', error)
       toast.error('Logout failed')
     }
+  }
+
+  // Group tasks by date
+  const groupedTasks = tasks.reduce((groups: { [key: string]: Task[] }, task) => {
+    const date = format(new Date(task.date), 'yyyy-MM-dd')
+    if (!groups[date]) {
+      groups[date] = []
+    }
+    groups[date].push(task)
+    return groups
+  }, {})
+
+  const handlePageChange = (page: number) => {
+    router.push(`/dashboard?page=${page}`)
   }
 
   return (
@@ -118,27 +148,37 @@ export default function DashboardClient({ tasks, user }: { tasks: Task[], user: 
                 <h2 className="text-xl font-semibold text-gray-900">Recent Time Entries</h2>
               </div>
               <div className="divide-y divide-gray-100">
-                {tasks.map((task: Task) => (
-                  <div key={task.id} className="p-6 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900">{task.title}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                        <div className="flex items-center mt-2 text-sm text-gray-500">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          {new Date(task.date).toLocaleDateString()}
+                {Object.entries(groupedTasks).map(([date, dayTasks]) => (
+                  <div key={date} className="bg-gray-50 px-6 py-3">
+                    <h3 className="text-sm font-medium text-gray-600">
+                      {format(new Date(date), 'EEEE, MMMM d, yyyy')}
+                    </h3>
+                    <div className="divide-y divide-gray-100">
+                      {dayTasks.map((task: Task) => (
+                        <div key={task.id} className="p-4 bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="font-medium text-gray-900">{task.title}</h3>
+                              <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                              <div className="flex items-center mt-2 text-sm text-gray-500">
+                                <Clock className="h-4 w-4 mr-1" />
+                                {format(new Date(task.startTime), 'h:mm a')}
+                                {task.endTime && ` - ${format(new Date(task.endTime), 'h:mm a')}`}
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                setSelectedTask(task)
+                                setIsDetailsOpen(true)
+                              }}
+                              className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              View Details
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <button 
-                        onClick={() => {
-                          setSelectedTask(task)
-                          setIsDetailsOpen(true)
-                        }}
-                        className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                      >
-                        <FileText className="h-4 w-4 mr-1" />
-                        View Details
-                      </button>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -148,6 +188,34 @@ export default function DashboardClient({ tasks, user }: { tasks: Task[], user: 
                   </div>
                 )}
               </div>
+              {/* Pagination Controls */}
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+                  <div className="text-sm text-gray-600">
+                    Page {pagination.currentPage} of {pagination.totalPages}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage === pagination.totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
