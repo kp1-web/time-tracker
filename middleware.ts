@@ -14,6 +14,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Redirect root to dashboard if authenticated, otherwise to login
+  if (pathname === '/') {
+    return session 
+      ? NextResponse.redirect(new URL('/dashboard', request.url))
+      : NextResponse.redirect(new URL('/login', request.url))
+  }
+
   // Redirect to login if trying to access protected route without session
   if (!session && !isPublicPath) {
     return NextResponse.redirect(new URL('/login', request.url))
